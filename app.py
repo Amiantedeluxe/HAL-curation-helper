@@ -363,6 +363,15 @@ with st.sidebar:
 
     lancer = st.button("▶️ Lancer l'analyse", type="primary", use_container_width=True)
 
+# On stocke les résultats dans session_state pour qu'ils survivent aux
+# interactions suivantes (cocher une case, etc.), qui relancent le script
+# mais ne doivent pas effacer la dernière analyse effectuée.
+if "df" not in st.session_state:
+    st.session_state.df = None
+    st.session_state.total_found = None
+    st.session_state.collection_label = None
+    st.session_state.dates_label = None
+
 if lancer:
     if date_from > date_to:
         st.error("La date de début doit être antérieure (ou égale) à la date de fin.")
@@ -382,38 +391,50 @@ if lancer:
         if not notices:
             progress_bar.empty()
             st.info("ℹ️ Aucune notice trouvée pour cette période et cette collection.")
+            st.session_state.df = None
         else:
             st.success(f"📋 {total_found} notice(s) trouvée(s). Analyse en cours...")
             df = analyze_notices(notices, progress_callback=update_progress)
             progress_bar.empty()
 
-            nb_problemes = (df['Nb problèmes'] > 0).sum()
-            col1, col2, col3 = st.columns(3)
-            col1.metric("Notices analysées", len(df))
-            col2.metric("Avec problème(s)", int(nb_problemes))
-            col3.metric("Sans problème", len(df) - int(nb_problemes))
+            # On sauvegarde le résultat pour qu'il reste affiché après ce rerun
+            st.session_state.df = df
+            st.session_state.total_found = total_found
+            st.session_state.collection_label = collection.strip()
+            st.session_state.dates_label = f"{date_from}_{date_to}"
 
-            st.divider()
+# Affichage des résultats (issus soit de l'analyse qui vient de tourner,
+# soit d'une analyse précédente toujours stockée en session)
+if st.session_state.df is not None:
+    df = st.session_state.df
 
-            only_flagged = st.checkbox("N'afficher que les notices avec un problème", value=True)
-            display_df = df[df['Nb problèmes'] > 0] if only_flagged else df
+    nb_problemes = (df['Nb problèmes'] > 0).sum()
+    col1, col2, col3 = st.columns(3)
+    col1.metric("Notices analysées", len(df))
+    col2.metric("Avec problème(s)", int(nb_problemes))
+    col3.metric("Sans problème", len(df) - int(nb_problemes))
 
-            st.dataframe(
-                display_df.drop(columns=['Nb problèmes']),
-                use_container_width=True,
-                hide_index=True,
-                column_config={
-                    "URL": st.column_config.LinkColumn("URL"),
-                    "Problèmes détectés": st.column_config.TextColumn("Problèmes détectés", width="large"),
-                },
-            )
+    st.divider()
 
-            csv = df.drop(columns=['Nb problèmes']).to_csv(index=False).encode('utf-8-sig')
-            st.download_button(
-                "⬇️ Télécharger le rapport (CSV)",
-                data=csv,
-                file_name=f"curation_hal_{collection.strip()}_{date_from}_{date_to}.csv",
-                mime="text/csv",
-            )
-else:
+    only_flagged = st.checkbox("N'afficher que les notices avec un problème", value=True)
+    display_df = df[df['Nb problèmes'] > 0] if only_flagged else df
+
+    st.dataframe(
+        display_df.drop(columns=['Nb problèmes']),
+        use_container_width=True,
+        hide_index=True,
+        column_config={
+            "URL": st.column_config.LinkColumn("URL"),
+            "Problèmes détectés": st.column_config.TextColumn("Problèmes détectés", width="large"),
+        },
+    )
+
+    csv = df.drop(columns=['Nb problèmes']).to_csv(index=False).encode('utf-8-sig')
+    st.download_button(
+        "⬇️ Télécharger le rapport (CSV)",
+        data=csv,
+        file_name=f"curation_hal_{st.session_state.collection_label}_{st.session_state.dates_label}.csv",
+        mime="text/csv",
+    )
+elif not lancer:
     st.info("Renseigne une collection et une période dans la barre latérale, puis clique sur **Lancer l'analyse**.")
