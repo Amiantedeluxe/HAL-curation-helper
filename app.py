@@ -323,7 +323,7 @@ def analyze_notices(notices, progress_callback=None):
             'HAL ID': notice['hal_id'],
             'Type': info.get('doc_type', 'UNKNOWN'),
             'Titre': get_title(metadata),
-            'Problèmes détectés': '\n'.join(flags) if flags else '✅ Aucun problème détecté',
+            'Flags': flags,  # liste de chaînes, une par problème détecté
             'Nb problèmes': len(flags),
             'URL': notice['url'],
         })
@@ -419,17 +419,31 @@ if st.session_state.df is not None:
     only_flagged = st.checkbox("N'afficher que les notices avec un problème", value=True)
     display_df = df[df['Nb problèmes'] > 0] if only_flagged else df
 
-    st.dataframe(
-        display_df.drop(columns=['Nb problèmes']),
-        use_container_width=True,
-        hide_index=True,
-        column_config={
-            "URL": st.column_config.LinkColumn("URL"),
-            "Problèmes détectés": st.column_config.TextColumn("Problèmes détectés", width="large"),
-        },
-    )
+    st.caption(f"{len(display_df)} notice(s) affichée(s)")
 
-    csv = df.drop(columns=['Nb problèmes']).to_csv(index=False).encode('utf-8-sig')
+    for _, row in display_df.iterrows():
+        with st.container(border=True):
+            col_titre, col_lien = st.columns([5, 1])
+            with col_titre:
+                st.markdown(f"**[#{row['N°']}] {row['HAL ID']}** — *{row['Type']}*")
+                if row['Titre']:
+                    st.markdown(f"📄 {row['Titre']}")
+            with col_lien:
+                st.link_button("🔗 Voir la notice", row['URL'], use_container_width=True)
+
+            if row['Flags']:
+                for flag in row['Flags']:
+                    st.markdown(f"- {flag}")
+            else:
+                st.markdown("✅ Aucun problème détecté")
+
+    st.divider()
+
+    csv_df = df.copy()
+    csv_df['Problèmes détectés'] = csv_df['Flags'].apply(
+        lambda fl: '\n'.join(fl) if fl else 'Aucun problème détecté'
+    )
+    csv = csv_df.drop(columns=['Flags', 'Nb problèmes']).to_csv(index=False).encode('utf-8-sig')
     st.download_button(
         "⬇️ Télécharger le rapport (CSV)",
         data=csv,
