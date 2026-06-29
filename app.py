@@ -63,6 +63,13 @@ LANG_FLAGS = {
     'ar': '🇸🇦',
 }
 
+SEVERITY_COLORS = {
+            "danger":  {"bg": "#FCEBEB", "text": "#791F1F"},
+            "warning": {"bg": "#FAEEDA", "text": "#633806"},
+            "info":    {"bg": "#E6F1FB", "text": "#0C447C"},
+            "success": {"bg": "#EAF3DE", "text": "#27500A"},
+        }
+
 # ============================================================================
 # PARTIE 1 : RÉCUPÉRATION DES NOTICES DEPUIS L'API HAL (PAR DATE)
 # ============================================================================
@@ -445,9 +452,10 @@ if st.session_state.df is not None:
             if row["Flags"]:
                 badges_html = ""
                 for flag in row['Flags']:
+                    colors = SEVERITY_COLORS.get(flag["severity"], SEVERITY_COLORS["warning"])
                     badges_html += (
-                        f'<span style="background:var(--bg-{flag["severity"]}); '
-                        f'color:var(--text-{flag["severity"]}); font-size:13px; '
+                        f'<span style="background:{colors["bg"]}; '
+                        f'color:{colors["text"]}; font-size:13px; '
                         f'padding:4px 10px; border-radius:6px; display:inline-flex; '
                         f'align-items:center; gap:5px; margin:2px 4px 2px 0;">'
                         f'<i class="ti {flag["icon"]}"></i>{flag["text"]}</span>'
