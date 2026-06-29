@@ -24,6 +24,13 @@ st.set_page_config(
     layout="wide",
 )
 
+st.markdown(
+    """
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/@tabler/icons-webfont@latest/dist/tabler-icons.min.css">
+    """,
+    unsafe_allow_html=True,
+)
+
 # ============================================================================
 # DICTIONNAIRES (inchangés par rapport au script original)
 # ============================================================================
@@ -212,9 +219,13 @@ def search_duplicates(metadata, hal_id_base):
 # PARTIE 3 : FLAGGING
 # ============================================================================
 
+def make_flag(text, severity="warning", icon="ti-alert-triangle"):
+    """severity: 'danger' (rouge), 'warning' (orange), 'info' (bleu), 'success' (vert)"""
+    return {"text": text, "severity": severity, "icon": icon}
+
 def flag_notice(metadata, notice):
     if not metadata:
-        return ['❌ Notice non trouvée dans l\'API'], {'doc_type': 'UNKNOWN'}
+        return [make_flag("Notice non trouvée dans l'API", "danger", "ti-alert-circle")], {'doc_type': 'UNKNOWN'}
 
     flags = []
     info = {}
@@ -239,9 +250,9 @@ def flag_notice(metadata, notice):
         info['doi'] = doi if doi else 'ABSENT'
 
         if not doi and not in_press and not is_law:
-            flags.append(f"⚠️ Article sans DOI ({journal if journal else 'Journal inconnu'})")
+            flags.append(make_flag(f"Article sans DOI ({journal if journal else 'Journal inconnu'})", "danger", "ti-link-off"))
         if doi and not metadata.get('abstract_s'):
-            flags.append('⚠️ Article sans résumé (DOI disponible)')
+            flags.append(make_flag("Article sans résumé (DOI disponible)", "warning", "ti-file-off"))
 
     if doc_type_code == 'COUV':
         scientific_editor = metadata.get('scientificEditor_s')
@@ -249,17 +260,17 @@ def flag_notice(metadata, notice):
             editor_text = scientific_editor
             if isinstance(editor_text, list):
                 editor_text = ', '.join(editor_text)
-            flags.append(f'✒️ Éditeur scientifique : {editor_text}')
+            flags.append(make_flag(f"Éditeur scientifique : {editor_text}", "info", "ti-user-check"))
         else:
-            flags.append('❌ Éditeur scientifique absent')
+            flags.append(make_flag("Éditeur scientifique absent", "danger", "ti-user-x"))
 
     journal_valid = metadata.get('journalValid_s')
     if journal_valid == 'INCOMING':
-        flags.append('⚠️ Revue invalide (INCOMING)')
+        flags.append(make_flag("Revue invalide", "danger", "ti-alert-triangle"))
 
     nb_without, total = count_authors_without_affiliation(metadata)
     if nb_without and nb_without > 0:
-        flags.append(f'⚠️ {nb_without} auteur(s) sans affiliation sur {total}')
+        flags.append(make_flag(f"{nb_without} auteur(s) sans affiliation sur {total}", "warning", "ti-users"))
 
     hal_id_base = re.sub(r'v\d+$', '', notice['hal_id'])
     duplicates = search_duplicates(metadata, hal_id_base)
@@ -273,7 +284,7 @@ def flag_notice(metadata, notice):
 
     if duplicates:
         info['titre_notice'] = display_title
-        flags.append(f'⚠️ {len(duplicates)} doublon(s) potentiel(s)')
+        flags.append(make_flag(f"{len(duplicates)} doublon(s) potentiel(s)", "warning", "ti-copy"))
 
     from langdetect import detect, LangDetectException
 
@@ -290,7 +301,7 @@ def flag_notice(metadata, notice):
             if detected != declared_lang:
                 declared_flag = LANG_FLAGS.get(declared_lang, declared_lang)
                 detected_flag = LANG_FLAGS.get(detected, detected)
-                flags.append(f'⚠️ Langue suspecte : déclarée {declared_flag}, titre détecté {detected_flag}')
+                flags.append(make_flag(f"Langue suspecte : déclarée {declared_flag}, titre détecté {detected_flag}", "warning", "ti-language"))
         except LangDetectException:
             pass
 
@@ -432,8 +443,16 @@ if st.session_state.df is not None:
                 st.link_button("🔗 Voir la notice", row['URL'], use_container_width=True)
 
             if row['Flags']:
+                badges_html = ""
                 for flag in row['Flags']:
-                    st.markdown(f"- {flag}")
+                    badges_html += (
+                        f'<span style="background:var(--bg-{flag["severity"]}); '
+                        f'color:var(--text-{flag["severity"]}); font-size:13px; '
+                        f'padding:4px 10px; border-radius:6px; display:inline-flex; '
+                        f'align-items:center; gap:5px; margin:2px 4px 2px 0;">'
+                        f'<i class="ti {flag["icon"]}"></i>{flag["text"]}</span>'
+                    )
+                st.markdown(badges_html, unsafe_allow_html=True)
             else:
                 st.markdown("✅ Aucun problème détecté")
 
@@ -441,7 +460,7 @@ if st.session_state.df is not None:
 
     csv_df = df.copy()
     csv_df['Problèmes détectés'] = csv_df['Flags'].apply(
-        lambda fl: '\n'.join(fl) if fl else 'Aucun problème détecté'
+        lambda fl: '\n'.join(f["text"] for f in fl) if fl else 'Aucun problème détecté'
     )
     csv = csv_df.drop(columns=['Flags', 'Nb problèmes']).to_csv(index=False).encode('utf-8-sig')
     st.download_button(
