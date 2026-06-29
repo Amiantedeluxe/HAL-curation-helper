@@ -442,7 +442,7 @@ if st.session_state.df is not None:
             with col_lien:
                 st.link_button("🔗 Voir la notice", row['URL'], use_container_width=True)
 
-            if row['Flags']:
+            if row["Flags"]:
                 badges_html = ""
                 for flag in row['Flags']:
                     badges_html += (
