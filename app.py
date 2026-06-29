@@ -358,8 +358,8 @@ with st.sidebar:
     )
 
     hier = datetime.date.today() - datetime.timedelta(days=1)
-    date_from = st.date_input("Depuis le", value=hier)
-    date_to = st.date_input("Jusqu'au", value=datetime.date.today())
+    date_from = st.date_input("Depuis le", value=hier, format="DD/MM/YYYY")
+    date_to = st.date_input("Jusqu'au", value=datetime.date.today(), format="DD/MM/YYYY")
 
     lancer = st.button("▶️ Lancer l'analyse", type="primary", use_container_width=True)
 
