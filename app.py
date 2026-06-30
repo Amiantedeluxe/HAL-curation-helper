@@ -81,6 +81,16 @@ SEVERITY_COLORS = {
             "success": {"bg": "#EAF3DE", "text": "#27500A"},
         }
 
+RULES = {
+    "doi_manquant":       "DOI manquant (articles)",
+    "sans_resume":        "Article sans résumé",
+    "editeur_sci":        "Éditeur scientifique (chapitres)",
+    "revue_invalide":     "Revue invalide",
+    "affiliation":        "Auteurs sans affiliation",
+    "doublons":           "Doublons potentiels",
+    "langue":             "Langue suspecte",
+}
+
 # ============================================================================
 # PARTIE 1 : RÉCUPÉRATION DES NOTICES DEPUIS L'API HAL (PAR DATE)
 # ============================================================================
@@ -241,7 +251,7 @@ def make_flag(text, severity="warning", icon="ti-alert-triangle"):
     """severity: 'danger' (rouge), 'warning' (orange), 'info' (bleu), 'success' (vert)"""
     return {"text": text, "severity": severity, "icon": icon}
 
-def flag_notice(metadata, notice):
+def flag_notice(metadata, notice, regles_actives):
     if not metadata:
         return [make_flag("Notice non trouvée dans l'API", "danger", "ti-alert-circle")], {'doc_type': 'UNKNOWN'}
 
@@ -253,7 +263,7 @@ def flag_notice(metadata, notice):
     info['doc_type'] = doc_type_label
     doc_type_code = doc_type
 
-    if doc_type_code == 'ART':
+    if "doi_manquant" in regles_actives and doc_type_code == 'ART':
         doi = metadata.get('doiId_s')
         in_press = metadata.get('inPress_bool', False)
         domains = metadata.get('domain_s', [])
@@ -269,10 +279,11 @@ def flag_notice(metadata, notice):
 
         if not doi and not in_press and not is_law:
             flags.append(make_flag(f"Article sans DOI ({journal if journal else 'Journal inconnu'})", "danger", "ti-link-off"))
+    if "sans_resume" in regles_actives and doc_type_code == 'ART':
         if doi and not metadata.get('abstract_s'):
             flags.append(make_flag("Article sans résumé (DOI disponible)", "warning", "ti-file-off"))
 
-    if doc_type_code == 'COUV':
+    if "editeur_sci" in regles_actives and doc_type_code == 'COUV':
         scientific_editor = metadata.get('scientificEditor_s')
         if scientific_editor:
             editor_text = scientific_editor
@@ -282,15 +293,18 @@ def flag_notice(metadata, notice):
         else:
             flags.append(make_flag("Éditeur scientifique absent", "danger", "ti-user-x"))
 
-    journal_valid = metadata.get('journalValid_s')
+    if "revue_invalide" in regles_actives:
+        journal_valid = metadata.get('journalValid_s')
     if journal_valid == 'INCOMING':
         flags.append(make_flag("Revue invalide", "danger", "ti-alert-triangle"))
 
-    nb_without, total = count_authors_without_affiliation(metadata)
+    if "affiliation" in regles_actives:
+        nb_without, total = count_authors_without_affiliation(metadata)
     if nb_without and nb_without > 0:
         flags.append(make_flag(f"{nb_without} auteur(s) sans affiliation sur {total}", "warning", "ti-users"))
 
-    hal_id_base = re.sub(r'v\d+$', '', notice['hal_id'])
+    if "doublons" in regles_actives:
+        hal_id_base = re.sub(r'v\d+$', '', notice['hal_id'])
     duplicates = search_duplicates(metadata, hal_id_base)
 
     display_title = ""
@@ -306,7 +320,8 @@ def flag_notice(metadata, notice):
 
     from langdetect import detect, LangDetectException
 
-    declared_lang = metadata.get('language_s')
+    if "langue" in regles_actives:
+        declared_lang = metadata.get('language_s')
     if isinstance(declared_lang, list):
         declared_lang = declared_lang[0] if declared_lang else None
     title = metadata.get('title_s')
@@ -339,13 +354,13 @@ def get_title(metadata):
 # PARTIE 4 : ANALYSE COMPLÈTE
 # ============================================================================
 
-def analyze_notices(notices, progress_callback=None):
+def analyze_notices(notices, regles_actives, progress_callback=None):
     rows = []
     total = len(notices)
 
     for i, notice in enumerate(notices, 1):
         metadata = fetch_hal_metadata(notice)
-        flags, info = flag_notice(metadata, notice)
+        flags, info = flag_notice(metadata, notice, regles_actives)
 
         rows.append({
             'N°': notice['numero'],
@@ -363,7 +378,8 @@ def analyze_notices(notices, progress_callback=None):
 
         if not notice.get('_prefetched_metadata'):
             time.sleep(0.3)
-
+            
+    df = analyze_notices(notices, regles_actives, progress_callback=update_progress)
     df = pd.DataFrame(rows)
     df = df.sort_values('Date dépôt', ascending=True).reset_index(drop=True)
     return df
@@ -450,6 +466,11 @@ if st.session_state.df is not None:
     col3.metric("Sans problème", len(df) - int(nb_problemes))
 
     st.divider()
+    st.markdown("**Règles actives**")
+    regles_actives = set()
+    for rule_id, rule_label in RULES.items():
+        if st.checkbox(rule_label, value=True, key=f"rule_{rule_id}"):
+            regles_actives.add(rule_id)
 
     only_flagged = st.checkbox("N'afficher que les notices avec un problème", value=True)
     display_df = df[df['Nb problèmes'] > 0] if only_flagged else df
@@ -458,12 +479,12 @@ if st.session_state.df is not None:
     st.caption(f"{len(display_df)} notice(s) affichée(s)")
 
     if st.session_state.validees and df is not None:
-        with st.expander(f"✅ {len(st.session_state.validees)} notice(s) validée(s)"):
+        with st.expander(f"✅ {len(st.session_state.validees)} notice(s) traitée(s)"):
             validees_df = df[df['HAL ID'].isin(st.session_state.validees)]
             for _, row in validees_df.iterrows():
                 col_info, col_lien, col_annuler = st.columns([5, 1, 1])
                 with col_info:
-                    titre_court = row['Titre'][:60] + "…" if len(row['Titre']) > 60 else row['Titre']
+                    titre_court = row['Titre'][:90] + "…" if len(row['Titre']) > 90 else row['Titre']
                     mini_badges = ""
                     for flag in row['Flags']:
                         colors = SEVERITY_COLORS.get(flag["severity"], SEVERITY_COLORS["warning"])
