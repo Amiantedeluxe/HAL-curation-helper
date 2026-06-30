@@ -314,9 +314,9 @@ def flag_notice(metadata, notice, regles_actives):
         elif isinstance(titles_from_metadata, str):
             display_title = titles_from_metadata
 
-    if duplicates:
-        info['titre_notice'] = display_title
-        flags.append(make_flag(f"{len(duplicates)} doublon(s) potentiel(s)", "warning", "ti-copy"))
+        if duplicates:
+            info['titre_notice'] = display_title
+            flags.append(make_flag(f"{len(duplicates)} doublon(s) potentiel(s)", "warning", "ti-copy"))
 
     from langdetect import detect, LangDetectException
 
