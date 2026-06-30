@@ -408,7 +408,12 @@ with st.sidebar:
     hier = datetime.date.today() - datetime.timedelta(days=1)
     date_from = st.date_input("Depuis le", value=hier, format="DD/MM/YYYY")
     date_to = st.date_input("Jusqu'au", value=datetime.date.today(), format="DD/MM/YYYY")
-
+    st.divider()
+    st.markdown("**Règles actives**")
+    regles_actives = set()
+    for rule_id, rule_label in RULES.items():
+        if st.checkbox(rule_label, value=True, key=f"rule_{rule_id}"):
+            regles_actives.add(rule_id)
     lancer = st.button("▶️ Lancer l'analyse", type="primary", use_container_width=True)
 
 # On stocke les résultats dans session_state pour qu'ils survivent aux
@@ -466,11 +471,6 @@ if st.session_state.df is not None:
     col3.metric("Sans problème", len(df) - int(nb_problemes))
 
     st.divider()
-    st.markdown("**Règles actives**")
-    regles_actives = set()
-    for rule_id, rule_label in RULES.items():
-        if st.checkbox(rule_label, value=True, key=f"rule_{rule_id}"):
-            regles_actives.add(rule_id)
 
     only_flagged = st.checkbox("N'afficher que les notices avec un problème", value=True)
     display_df = df[df['Nb problèmes'] > 0] if only_flagged else df
