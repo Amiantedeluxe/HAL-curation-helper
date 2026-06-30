@@ -379,7 +379,6 @@ def analyze_notices(notices, regles_actives, progress_callback=None):
         if not notice.get('_prefetched_metadata'):
             time.sleep(0.3)
             
-    df = analyze_notices(notices, regles_actives, progress_callback=update_progress)
     df = pd.DataFrame(rows)
     df = df.sort_values('Date dépôt', ascending=True).reset_index(drop=True)
     return df
