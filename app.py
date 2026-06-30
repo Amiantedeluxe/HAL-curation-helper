@@ -55,7 +55,10 @@ DOCTYPE_LABELS = {
     'HDR': 'HDR',
     'POSTER': 'Poster',
     'REPORT': 'Rapport',
-}
+    'OTHER': 'Autre',
+    'ISSUE': 'Numéro de revue',
+    'BLOG': 'Blog',
+    }
 
 LANG_FLAGS = {
     'fr': '🇫🇷',
@@ -134,7 +137,7 @@ def fetch_notices_by_date(date_from, date_to, collection, progress_callback=None
         if total is None or start >= total:
             break
 
-        time.sleep(0.2)
+        time.sleep(0.1)
 
     return notices, (total or 0)
 
