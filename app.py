@@ -451,6 +451,21 @@ if st.session_state.df is not None:
     display_df = display_df[~display_df['HAL ID'].isin(st.session_state.validees)]
     st.caption(f"{len(display_df)} notice(s) affichée(s)")
 
+    if st.session_state.validees and df is not None:
+        with st.expander(f"✅ {len(st.session_state.validees)} notice(s) validée(s)"):
+            validees_df = df[df['HAL ID'].isin(st.session_state.validees)]
+            for _, row in validees_df.iterrows():
+                col_info, col_lien, col_annuler = st.columns([5, 1, 1])
+                with col_info:
+                    st.markdown(f"**{row['HAL ID']}** — *{row['Type']}*")
+                with col_lien:
+                    st.link_button("🔗 Voir", row['URL'], use_container_width=True)
+                with col_annuler:
+                    if st.button("↩️ Remettre", key=f"annuler_{row['HAL ID']}", use_container_width=True):
+                        st.session_state.validees.discard(row['HAL ID'])
+                        st.rerun()
+
+
     for _, row in display_df.iterrows():
         with st.container(border=True):
             col_titre, col_lien, col_valid = st.columns([5, 1, 1])
@@ -463,6 +478,7 @@ if st.session_state.df is not None:
             with col_valid:
                 if st.button("✅ Traité", key=f"valid_{row['HAL ID']}", use_container_width=True):
                     st.session_state.validees.add(row['HAL ID'])
+                    st.toast(f"{row['HAL ID']} validé ✅", icon="✅")
                     st.rerun()
 
             if row["Flags"]:
