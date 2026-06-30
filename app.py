@@ -355,6 +355,7 @@ def analyze_notices(notices, progress_callback=None):
             'Flags': flags,  # liste de chaînes, une par problème détecté
             'Nb problèmes': len(flags),
             'URL': notice['url'],
+            'Date dépôt': metadata.get('releasedDate_tdate', '')[:10] if metadata.get('releasedDate_tdate') else '',
         })
 
         if progress_callback:
@@ -363,7 +364,9 @@ def analyze_notices(notices, progress_callback=None):
         if not notice.get('_prefetched_metadata'):
             time.sleep(0.3)
 
-    return pd.DataFrame(rows)
+    df = pd.DataFrame(rows)
+    df = df.sort_values('Date dépôt', ascending=True).reset_index(drop=True)
+    return df
 
 
 # ============================================================================
@@ -486,7 +489,7 @@ if st.session_state.df is not None:
         with st.container(border=True):
             col_titre, col_lien, col_valid = st.columns([5, 1, 1])
             with col_titre:
-                st.markdown(f"**[#{row['N°']}] {row['HAL ID']}** — *{row['Type']}*")
+                st.markdown(f"**[#{row['N°']}] {row['HAL ID']}** — *{row['Type']}* <span style='font-size:12px; color:gray;'>· {row['Date dépôt']}</span>", unsafe_allow_html=True)
                 if row['Titre']:
                     st.markdown(f"📄 {row['Titre']}")
             with col_lien:
