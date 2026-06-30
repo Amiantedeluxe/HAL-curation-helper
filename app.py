@@ -450,7 +450,7 @@ if lancer:
             st.session_state.df = None
         else:
             st.success(f"📋 {total_found} notice(s) trouvée(s). Analyse en cours...")
-            df = analyze_notices(notices, progress_callback=update_progress)
+            df = analyze_notices(notices, regles_actives, progress_callback=update_progress)
             progress_bar.empty()
 
             # On sauvegarde le résultat pour qu'il reste affiché après ce rerun
