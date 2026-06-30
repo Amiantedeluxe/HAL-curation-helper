@@ -463,20 +463,22 @@ if st.session_state.df is not None:
             for _, row in validees_df.iterrows():
                 col_info, col_lien, col_annuler = st.columns([5, 1, 1])
                 with col_info:
-                    titre_court = row['Titre'][:70] + "…" if len(row['Titre']) > 70 else row['Titre']
-                    st.markdown(f"**{row['HAL ID']}** — *{row['Type']}*")
-                    st.markdown(f"<span style='font-size:12px; color:gray;'>📄 {titre_court}</span>", unsafe_allow_html=True)
-                    if row['Flags']:
-                        mini_badges = ""
-                        for flag in row['Flags']:
-                            colors = SEVERITY_COLORS.get(flag["severity"], SEVERITY_COLORS["warning"])
-                            mini_badges += (
-                                f'<span style="background:{colors["bg"]}; color:{colors["text"]}; '
-                                f'padding:3px 5px; border-radius:4px; margin-right:4px; '
-                                f'display:inline-flex; align-items:center;">'
-                                f'<i class="ti {flag["icon"]}" style="font-size:12px;"></i></span>'
-                            )
-                        st.markdown(mini_badges, unsafe_allow_html=True)
+                    titre_court = row['Titre'][:60] + "…" if len(row['Titre']) > 60 else row['Titre']
+                    mini_badges = ""
+                    for flag in row['Flags']:
+                        colors = SEVERITY_COLORS.get(flag["severity"], SEVERITY_COLORS["warning"])
+                        mini_badges += (
+                            f'<span style="background:{colors["bg"]}; color:{colors["text"]}; '
+                            f'padding:3px 5px; border-radius:4px; margin-right:3px; '
+                            f'display:inline-flex; align-items:center;">'
+                            f'<i class="ti {flag["icon"]}" style="font-size:11px;"></i></span>'
+                        )
+                    st.markdown(
+                        f'<span style="font-size:13px;"><strong>{row["HAL ID"]}</strong> '
+                        f'<span style="color:gray;">— {row["Type"]} · {titre_court}</span> '
+                        f'{mini_badges}</span>',
+                        unsafe_allow_html=True
+                    )
                 with col_lien:
                     st.link_button("🔗 Voir", row['URL'], use_container_width=True)
                 with col_annuler:
