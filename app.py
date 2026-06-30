@@ -295,24 +295,24 @@ def flag_notice(metadata, notice, regles_actives):
 
     if "revue_invalide" in regles_actives:
         journal_valid = metadata.get('journalValid_s')
-    if journal_valid == 'INCOMING':
-        flags.append(make_flag("Revue invalide", "danger", "ti-alert-triangle"))
+        if journal_valid == 'INCOMING':
+            flags.append(make_flag("Revue invalide", "danger", "ti-alert-triangle"))
 
     if "affiliation" in regles_actives:
         nb_without, total = count_authors_without_affiliation(metadata)
-    if nb_without and nb_without > 0:
-        flags.append(make_flag(f"{nb_without} auteur(s) sans affiliation sur {total}", "warning", "ti-users"))
+        if nb_without and nb_without > 0:
+            flags.append(make_flag(f"{nb_without} auteur(s) sans affiliation sur {total}", "warning", "ti-users"))
 
     if "doublons" in regles_actives:
         hal_id_base = re.sub(r'v\d+$', '', notice['hal_id'])
-    duplicates = search_duplicates(metadata, hal_id_base)
+        duplicates = search_duplicates(metadata, hal_id_base)
 
-    display_title = ""
-    titles_from_metadata = metadata.get('title_s')
-    if isinstance(titles_from_metadata, list) and titles_from_metadata:
-        display_title = titles_from_metadata[0]
-    elif isinstance(titles_from_metadata, str):
-        display_title = titles_from_metadata
+        display_title = ""
+        titles_from_metadata = metadata.get('title_s')
+        if isinstance(titles_from_metadata, list) and titles_from_metadata:
+            display_title = titles_from_metadata[0]
+        elif isinstance(titles_from_metadata, str):
+            display_title = titles_from_metadata
 
     if duplicates:
         info['titre_notice'] = display_title
@@ -322,21 +322,21 @@ def flag_notice(metadata, notice, regles_actives):
 
     if "langue" in regles_actives:
         declared_lang = metadata.get('language_s')
-    if isinstance(declared_lang, list):
-        declared_lang = declared_lang[0] if declared_lang else None
-    title = metadata.get('title_s')
-    if isinstance(title, list):
-        title = title[0] if title else None
+        if isinstance(declared_lang, list):
+            declared_lang = declared_lang[0] if declared_lang else None
+        title = metadata.get('title_s')
+        if isinstance(title, list):
+            title = title[0] if title else None
 
-    if declared_lang and title and len(title) > 20:
-        try:
-            detected = detect(title)
-            if detected != declared_lang:
-                declared_flag = LANG_FLAGS.get(declared_lang, declared_lang)
-                detected_flag = LANG_FLAGS.get(detected, detected)
-                flags.append(make_flag(f"Langue suspecte : déclarée {declared_flag}, titre détecté {detected_flag}", "warning", "ti-language"))
-        except LangDetectException:
-            pass
+        if declared_lang and title and len(title) > 20:
+            try:
+                detected = detect(title)
+                if detected != declared_lang:
+                    declared_flag = LANG_FLAGS.get(declared_lang, declared_lang)
+                    detected_flag = LANG_FLAGS.get(detected, detected)
+                    flags.append(make_flag(f"Langue suspecte : déclarée {declared_flag}, titre détecté {detected_flag}", "warning", "ti-language"))
+            except LangDetectException:
+                pass
 
     return flags, info
 
