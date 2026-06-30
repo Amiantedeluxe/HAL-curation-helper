@@ -31,6 +31,14 @@ st.markdown(
     unsafe_allow_html=True,
 )
 
+st.markdown("""
+<style>
+div[data-testid="stVerticalBlockBorderWrapper"] > div {
+    padding: 0.5rem 0.75rem !important;
+}
+</style>
+""", unsafe_allow_html=True)
+
 # ============================================================================
 # DICTIONNAIRES (inchangés par rapport au script original)
 # ============================================================================
@@ -390,6 +398,9 @@ if "df" not in st.session_state:
     st.session_state.collection_label = None
     st.session_state.dates_label = None
 
+if "validees" not in st.session_state:
+    st.session_state.validees = set()
+
 if lancer:
     if date_from > date_to:
         st.error("La date de début doit être antérieure (ou égale) à la date de fin.")
@@ -437,17 +448,22 @@ if st.session_state.df is not None:
     only_flagged = st.checkbox("N'afficher que les notices avec un problème", value=True)
     display_df = df[df['Nb problèmes'] > 0] if only_flagged else df
 
+    display_df = display_df[~display_df['HAL ID'].isin(st.session_state.validees)]
     st.caption(f"{len(display_df)} notice(s) affichée(s)")
 
     for _, row in display_df.iterrows():
         with st.container(border=True):
-            col_titre, col_lien = st.columns([5, 1])
+            col_titre, col_lien, col_valid = st.columns([5, 1, 1])
             with col_titre:
                 st.markdown(f"**[#{row['N°']}] {row['HAL ID']}** — *{row['Type']}*")
                 if row['Titre']:
                     st.markdown(f"📄 {row['Titre']}")
             with col_lien:
-                st.link_button("🔗 Voir la notice", row['URL'], use_container_width=True)
+                st.link_button("🔗 Voir", row['URL'], use_container_width=True)
+            with col_valid:
+                if st.button("✅ Traité", key=f"valid_{row['HAL ID']}", use_container_width=True):
+                    st.session_state.validees.add(row['HAL ID'])
+                    st.rerun()
 
             if row["Flags"]:
                 badges_html = ""
