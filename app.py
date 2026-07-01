@@ -247,9 +247,9 @@ def search_duplicates(metadata, hal_id_base):
 # PARTIE 3 : FLAGGING
 # ============================================================================
 
-def make_flag(text, severity="warning", icon="ti-alert-triangle"):
+def make_flag(text, severity="warning", icon="ti-alert-triangle", rule_id=""):
     """severity: 'danger' (rouge), 'warning' (orange), 'info' (bleu), 'success' (vert)"""
-    return {"text": text, "severity": severity, "icon": icon}
+    return {"text": text, "severity": severity, "icon": icon, "rule_id": rule_id}
 
 def flag_notice(metadata, notice, regles_actives):
     if not metadata:
@@ -278,10 +278,10 @@ def flag_notice(metadata, notice, regles_actives):
         info['doi'] = doi if doi else 'ABSENT'
 
         if not doi and not in_press and not is_law:
-            flags.append(make_flag(f"Article sans DOI ({journal if journal else 'Journal inconnu'})", "danger", "ti-link-off"))
+            flags.append(make_flag(f"Article sans DOI ({journal if journal else 'Journal inconnu'})", "danger", "ti-link-off", rule_id="doi_manquant"))
     if "sans_resume" in regles_actives and doc_type_code == 'ART':
         if doi and not metadata.get('abstract_s'):
-            flags.append(make_flag("Article sans résumé (DOI disponible)", "warning", "ti-file-off"))
+            flags.append(make_flag("Article sans résumé (DOI disponible)", "warning", "ti-file-off", rule_id="sans_resume"))
 
     if "editeur_sci" in regles_actives and doc_type_code == 'COUV':
         scientific_editor = metadata.get('scientificEditor_s')
@@ -289,19 +289,19 @@ def flag_notice(metadata, notice, regles_actives):
             editor_text = scientific_editor
             if isinstance(editor_text, list):
                 editor_text = ', '.join(editor_text)
-            flags.append(make_flag(f"Éditeur scientifique : {editor_text}", "info", "ti-user-check"))
+            flags.append(make_flag(f"Éditeur scientifique : {editor_text}", "info", "ti-user-check", rule_id="editeur_sci"))
         else:
-            flags.append(make_flag("Éditeur scientifique absent", "danger", "ti-user-x"))
+            flags.append(make_flag("Éditeur scientifique absent", "danger", "ti-user-x", rule_id="editeur_sci"))
 
     if "revue_invalide" in regles_actives:
         journal_valid = metadata.get('journalValid_s')
         if journal_valid == 'INCOMING':
-            flags.append(make_flag("Revue invalide", "danger", "ti-alert-triangle"))
+            flags.append(make_flag("Revue invalide", "danger", "ti-alert-triangle", rule_id="revue_invalide"))
 
     if "affiliation" in regles_actives:
         nb_without, total = count_authors_without_affiliation(metadata)
         if nb_without and nb_without > 0:
-            flags.append(make_flag(f"{nb_without} auteur(s) sans affiliation sur {total}", "warning", "ti-users"))
+            flags.append(make_flag(f"{nb_without} auteur(s) sans affiliation sur {total}", "warning", "ti-users", rule_id="affiliation"))
 
     if "doublons" in regles_actives:
         hal_id_base = re.sub(r'v\d+$', '', notice['hal_id'])
@@ -316,7 +316,7 @@ def flag_notice(metadata, notice, regles_actives):
 
         if duplicates:
             info['titre_notice'] = display_title
-            flags.append(make_flag(f"{len(duplicates)} doublon(s) potentiel(s)", "warning", "ti-copy"))
+            flags.append(make_flag(f"{len(duplicates)} doublon(s) potentiel(s)", "warning", "ti-copy", rule_id="doublons"))
 
     from langdetect import detect, LangDetectException
 
@@ -334,7 +334,7 @@ def flag_notice(metadata, notice, regles_actives):
                 if detected != declared_lang:
                     declared_flag = LANG_FLAGS.get(declared_lang, declared_lang)
                     detected_flag = LANG_FLAGS.get(detected, detected)
-                    flags.append(make_flag(f"Langue suspecte : déclarée {declared_flag}, titre détecté {detected_flag}", "warning", "ti-language"))
+                    flags.append(make_flag(f"Langue suspecte : déclarée {declared_flag}, titre détecté {detected_flag}", "warning", "ti-language", rule_id="langue"))
             except LangDetectException:
                 pass
 
@@ -424,6 +424,9 @@ if "df" not in st.session_state:
     st.session_state.collection_label = None
     st.session_state.dates_label = None
 
+if "filtres_affichage" not in st.session_state:
+    st.session_state.filtres_affichage = set(RULES.keys())
+
 if "validees" not in st.session_state:
     st.session_state.validees = set()
 
@@ -506,6 +509,15 @@ if st.session_state.df is not None:
                         st.session_state.validees.discard(row['HAL ID'])
                         st.rerun()
 
+    filtres_actifs = st.pills(
+        "Filtres actifs",
+        options=list(RULES.keys()),
+        format_func=lambda x: RULES[x],
+        selection_mode="multi",
+        default=list(RULES.keys()),
+        label_visibility="collapsed",
+    )
+    filtres_actifs = set(filtres_actifs) if filtres_actifs else set()
 
     for _, row in display_df.iterrows():
         with st.container(border=True):
@@ -522,9 +534,10 @@ if st.session_state.df is not None:
                     st.toast(f"{row['HAL ID']} validé ✅", icon="✅")
                     st.rerun()
 
-            if row["Flags"]:
+            flags_visibles = [f for f in row['Flags'] if f.get('rule_id') in filtres_actifs]
+            if flags_visibles:
                 badges_html = ""
-                for flag in row['Flags']:
+                for flag in flags_visibles:
                     colors = SEVERITY_COLORS.get(flag["severity"], SEVERITY_COLORS["warning"])
                     badges_html += (
                         f'<span style="background:{colors["bg"]}; '
@@ -534,8 +547,10 @@ if st.session_state.df is not None:
                         f'<i class="ti {flag["icon"]}"></i>{flag["text"]}</span>'
                     )
                 st.markdown(badges_html, unsafe_allow_html=True)
-            else:
+            elif not row['Flags']:
                 st.markdown("✅ Aucun problème détecté")
+            else:
+                st.markdown("<span style='font-size:13px; color:gray;'>Problèmes masqués par les filtres</span>", unsafe_allow_html=True)
 
     st.divider()
 
