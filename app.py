@@ -520,7 +520,7 @@ if st.session_state.df is not None:
     filtres_actifs = set(filtres_actifs) if filtres_actifs else set()
 
     for _, row in display_df.iterrows():
-        with st.container(border=True):
+        with st.container(border=True, key=f"notice_{row['HAL ID']}"):
             col_titre, col_lien, col_valid = st.columns([5, 1, 1])
             with col_titre:
                 st.markdown(f"**[#{row['N°']}] {row['HAL ID']}** — *{row['Type']}* <span style='font-size:12px; color:gray;'>· {row['Date dépôt']}</span>", unsafe_allow_html=True)
